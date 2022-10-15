@@ -11,6 +11,7 @@ class PostsURLTests(TestCase):
     def setUpClass(cls):
         super().setUpClass()
         cls.user = User.objects.create_user(username='auth')
+        cls.user1 = User.objects.create_user(username='notauth')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test',
@@ -25,7 +26,9 @@ class PostsURLTests(TestCase):
     def setUp(self):
         self.guest_client = Client()
         self.authorized_client = Client()
+        self.authorized_client1 = Client()
         self.authorized_client.force_login(self.user)
+        self.authorized_client1.force_login(self.user1)
 
     def test_homepage(self):
         response = self.guest_client.get('/')
@@ -43,7 +46,7 @@ class PostsURLTests(TestCase):
 
     def test_posts_post_id_exists(self):
         """Страница posts/<int:post_id>/ доступна любому пользователю."""
-        response = self.guest_client.get('/posts/1/')
+        response = self.guest_client.get(f'/posts/{self.post.pk}/')
         self.assertEqual(response.status_code, 200)
 
     def test_posts_unexisting_page_exists(self):
@@ -84,3 +87,17 @@ class PostsURLTests(TestCase):
         """Страница /...edit/ использует верный шаблон."""
         response = self.authorized_client.get(f'/posts/{self.post.pk}/edit/')
         self.assertTemplateUsed(response, 'posts/create_post.html')
+
+    def test_urls_guest_client(self):
+        """Доступ неавторизованного пользователя"""
+        pages: tuple = ('/create/',
+                        f'/posts/{self.post.pk}/edit/')
+        for page in pages:
+            response = self.guest_client.get(page)
+            self.assertEqual(response.status_code, 302)
+
+    def test_posts_edit_exists(self):
+        """Страница /edit/ доступна только автору."""
+        response = self.authorized_client1.get(
+            f'/posts/{self.post.author.pk}/edit/')
+        self.assertEqual(response.status_code, 302)

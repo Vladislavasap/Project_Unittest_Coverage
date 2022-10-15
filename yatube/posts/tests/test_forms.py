@@ -22,6 +22,11 @@ class PostFormTests(TestCase):
             text='Тестовый пост',
             group=cls.group
         )
+        cls.post1 = Post.objects.create(
+            author=cls.user,
+            text='отредактированный текст поста',
+            group=cls.group
+        )
 
     def setUp(self):
         self.guest_client = Client()
@@ -32,7 +37,9 @@ class PostFormTests(TestCase):
         """Test Valid form saves a post in DB"""
         posts_count = Post.objects.count()
         form_data = {'text': 'test',
-                     'group': self.group.pk}
+                     'group': self.group.pk,
+                     'group1': self.group.title,
+                     'author': self.post.author}
         response = self.authorized_client.post(
             reverse('posts:post_create'),
             data=form_data,
@@ -44,23 +51,25 @@ class PostFormTests(TestCase):
         self.assertEqual(Post.objects.count(), posts_count + 1)
 
         created_post = Post.objects.latest('pk')
-        post_fields = {created_post.text: form_data['text']}
+        post_fields = {created_post.text: form_data['text'],
+                       created_post.author: form_data['author'],
+                       created_post.group.title: form_data['group1']}
         for value, expected in post_fields.items():
             with self.subTest(value=value):
                 self.assertEqual(value, expected)
 
     def test_edit_post(self):
         """Test post save after edit"""
-        form_data = {'text': self.post.text,
+        form_data = {'text': self.post1.text,
                      'group': self.group.pk}
         response = self.authorized_client.post(
             reverse('posts:post_edit', kwargs={'post_id': self.post.pk}),
         )
-        post = Post.objects.get(pk=self.post.pk)
+        post1 = Post.objects.get(pk=self.post1.pk)
         self.assertEqual(
-            post.text,
+            post1.text,
             form_data['text'])
         self.assertEqual(
-            post.group.pk,
+            post1.group.pk,
             form_data['group'])
         self.assertEqual(response.status_code, 200)
