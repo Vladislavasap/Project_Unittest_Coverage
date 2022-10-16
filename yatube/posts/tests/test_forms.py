@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
 from posts.models import Group, Post
@@ -34,7 +35,7 @@ class PostFormTests(TestCase):
         self.authorized_client.force_login(self.user)
 
     def test_create_post(self):
-        """Test Valid form saves a post in DB
+        """Test Valid form saves a post in DB"""
         small_gif = (
             b'\x47\x49\x46\x38\x39\x61\x02\x00'
             b'\x01\x00\x80\x00\x00\x00\x00\x00'
@@ -46,11 +47,12 @@ class PostFormTests(TestCase):
         uploaded = SimpleUploadedFile(
             name='small.gif',
             content=small_gif,
-            content_type='image/gif')"""
+            content_type='image/gif')
 
         posts_count = Post.objects.count()
         form_data = {'text': 'test',
-                     'group': self.group.pk}
+                     'group': self.group.pk,
+                     'image': uploaded}
         response = self.authorized_client.post(
             reverse('posts:post_create'),
             data=form_data,
@@ -63,6 +65,8 @@ class PostFormTests(TestCase):
         self.assertTrue(Post.objects.filter(text='Тестовый пост',
                                             author=self.post.author,
                                             group=self.post.pk).exists())
+        self.assertEqual(response.context.get('page_obj')[0].image.name,
+                         self.post.image.name)
 
     def test_edit_post(self):
         """Test post save after edit"""

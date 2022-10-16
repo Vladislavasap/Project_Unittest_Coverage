@@ -65,6 +65,7 @@ class ViewsTests(TestCase):
         response = self.authorized_client.get(reverse('posts:index'))
         first_object = response.context['page_obj'][0]
         self.assertEqual(first_object.text, self.post.text)
+        self.assertEqual(first_object.image, self.post.image)
 
     def test_group_posts_correct_context(self):
         """Тест контекста для group_list."""
@@ -74,6 +75,7 @@ class ViewsTests(TestCase):
         first_object = response.context['page_obj'][0]
         self.assertEqual(first_object.text, self.post.text)
         self.assertEqual(first_object.group, self.post.group)
+        self.assertEqual(first_object.image, self.post.image)
 
     def test_profile_correct_context(self):
         """Тест контекста для profile."""
@@ -83,6 +85,7 @@ class ViewsTests(TestCase):
         first_object = response.context['page_obj'][0]
         self.assertEqual(first_object.text, self.post.text)
         self.assertEqual(first_object.author, self.post.author)
+        self.assertEqual(first_object.image, self.post.image)
 
     def test_post_detail_correct_context(self):
         """Тест контекста для post_detail."""
@@ -92,6 +95,7 @@ class ViewsTests(TestCase):
         self.assertEqual(first_object.text, self.post.text)
         self.assertEqual(first_object.author.posts.count(),
                          self.post.author.posts.count())
+        self.assertEqual(first_object.image, self.post.image)
 
     def test_create_correct_context(self):
         """Тест контекста для post_create."""
