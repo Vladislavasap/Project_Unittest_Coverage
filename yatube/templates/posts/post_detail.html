@@ -35,6 +35,11 @@
       {% if  post.author == request.user %}
         <a href="<{% url 'posts/create_post.html'%}>" class="btn btn-primary">Редактировать</a> 
         {% endif %}
+        {% if request.user.is_authenticated %}
+        {% include 'includes/add_com.html' %}
+        {% else %}
+        Оставить комментарий может только избранный
+        {% endif %}
     </article>
   </div> 
 {% endblock%}

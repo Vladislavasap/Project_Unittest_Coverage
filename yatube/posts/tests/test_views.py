@@ -1,8 +1,9 @@
 from django import forms
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
-from posts.models import Group, Post
+from posts.models import Comment, Follow, Group, Post
 
 User = get_user_model()
 
@@ -28,8 +29,14 @@ class ViewsTests(TestCase):
             text='Тестовый пост',
             group=cls.group
         )
+        cls.comment = Comment.objects.create(
+            post=cls.post,
+            author=cls.post.author,
+            text='Текст тестового поста'
+        )
 
     def setUp(self):
+        cache.clear()
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
@@ -95,6 +102,8 @@ class ViewsTests(TestCase):
         self.assertEqual(first_object.text, self.post.text)
         self.assertEqual(first_object.author.posts.count(),
                          self.post.author.posts.count())
+        self.assertEqual(response.context.get('comments')[0].text,
+                         f'{self.comment.text}')
         self.assertEqual(first_object.image, self.post.image)
 
     def test_create_correct_context(self):
@@ -149,6 +158,7 @@ class PaginatorViewsTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cache.clear()
         cls.author = User.objects.create_user(username='auth1')
         cls.group = Group.objects.create(
             title='Заголовок для тестовой группы',
@@ -177,3 +187,72 @@ class PaginatorViewsTest(TestCase):
             response = self.client.get(tested_url, {'page': 2})
             self.assertEqual(len(response.context.get('page_obj'
                                                       ).object_list), 3)
+
+
+class CacheTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.post = Post.objects.create(
+            author=User.objects.create_user(username='test_name'),
+            text='Тестовая запись для создания поста')
+
+    def setUp(self):
+        self.guest_client = Client()
+        self.user = User.objects.create_user(username='mob')
+        self.authorized_client = Client()
+        self.authorized_client.force_login(self.user)
+
+    def test_cache_index(self):
+        """Тест кэширования страницы index.html"""
+        first_state = self.authorized_client.get(reverse('posts:index'))
+        post_1 = Post.objects.get(pk=1)
+        post_1.text = 'Измененный текст'
+        post_1.save()
+        second_state = self.authorized_client.get(reverse('posts:index'))
+        self.assertEqual(first_state.content, second_state.content)
+        cache.clear()
+        third_state = self.authorized_client.get(reverse('posts:index'))
+        self.assertNotEqual(first_state.content, third_state.content)
+
+
+class FollowTests(TestCase):
+    def setUp(self):
+        self.client_auth_follower = Client()
+        self.client_auth_following = Client()
+        self.user_follower = User.objects.create_user(username='follower')
+        self.user_following = User.objects.create_user(username='following')
+        self.post = Post.objects.create(
+            author=self.user_following,
+            text='Тестовая запись для тестирования ленты'
+        )
+        self.client_auth_follower.force_login(self.user_follower)
+        self.client_auth_following.force_login(self.user_following)
+
+    def test_follow(self):
+        self.client_auth_follower.get(reverse('posts:profile_follow',
+                                              kwargs={'username':
+                                                      self.user_following.
+                                                      username}))
+        self.assertEqual(Follow.objects.all().count(), 1)
+
+    def test_unfollow(self):
+        self.client_auth_follower.get(reverse('posts:profile_follow',
+                                              kwargs={'username':
+                                                      self.user_following.
+                                                      username}))
+        self.client_auth_follower.get(reverse('posts:profile_unfollow',
+                                      kwargs={'username':
+                                              self.user_following.username}))
+        self.assertEqual(Follow.objects.all().count(), 0)
+
+    def test_subscription_feed(self):
+        """запись появляется в ленте подписчиков"""
+        Follow.objects.create(user=self.user_follower,
+                              author=self.user_following)
+        response = self.client_auth_follower.get('/follow/')
+        post_text_0 = response.context["page_obj"][0].text
+        self.assertEqual(post_text_0, 'Тестовая запись для тестирования ленты')
+        response = self.client_auth_following.get('/follow/')
+        self.assertNotContains(response,
+                               'Тестовая запись для тестирования ленты')

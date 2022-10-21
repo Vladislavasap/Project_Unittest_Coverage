@@ -41,3 +41,34 @@ class Post(models.Model):
 
     def __str__(self):
         return self.text
+
+
+class Comment(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='comments'
+    )
+    text = models.TextField(verbose_name='Текст комментария')
+    created = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата публикации коммента'
+    )
+
+
+class Follow(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="follower"
+    )
+    author = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="following"
+    )
